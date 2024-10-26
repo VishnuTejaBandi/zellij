@@ -721,14 +721,24 @@ pub(crate) fn plugin_thread_main(
                     pipe_messages.push((
                         Some(plugin_id),
                         Some(client_id),
-                        PipeMessage::new(PipeSource::Keybind, name, &payload, &args, is_private),
+                        PipeMessage::new(
+                            PipeSource::Keybind {
+                                source_client_id: cli_client_id,
+                            },
+                            name,
+                            &payload,
+                            &args,
+                            is_private,
+                        ),
                     ));
                 } else {
                     match plugin {
                         Some(plugin_url) => {
                             // send to specific plugin(s)
                             pipe_to_specific_plugins(
-                                PipeSource::Keybind,
+                                PipeSource::Keybind {
+                                    source_client_id: cli_client_id,
+                                },
                                 &plugin_url,
                                 &configuration,
                                 &cwd,
@@ -749,7 +759,9 @@ pub(crate) fn plugin_thread_main(
                         None => {
                             // no specific destination, send to all plugins
                             pipe_to_all_plugins(
-                                PipeSource::Keybind,
+                                PipeSource::Keybind {
+                                    source_client_id: cli_client_id,
+                                },
                                 &name,
                                 &payload,
                                 &args,
