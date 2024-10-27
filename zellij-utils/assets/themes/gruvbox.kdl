@@ -13,8 +13,8 @@ themes {
         red 214 93 14
     }
     gruvbox-dark {
-        fg 235 219 178
-        bg 80 73 69
+        fg 189 174 147
+        bg "#3c3836"
         black 60 56 54
         red 204 36 29
         green 152 151 26
