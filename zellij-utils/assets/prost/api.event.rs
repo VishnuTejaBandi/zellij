@@ -76,12 +76,14 @@ pub struct ListClientsPayload {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClientInfo {
     #[prost(uint32, tag = "1")]
+    pub client_pid: u32,
+    #[prost(uint32, tag = "2")]
     pub client_id: u32,
-    #[prost(message, optional, tag = "2")]
+    #[prost(message, optional, tag = "3")]
     pub pane_id: ::core::option::Option<PaneId>,
-    #[prost(string, tag = "3")]
+    #[prost(string, tag = "4")]
     pub running_command: ::prost::alloc::string::String,
-    #[prost(bool, tag = "4")]
+    #[prost(bool, tag = "5")]
     pub is_current_client: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

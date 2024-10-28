@@ -158,6 +158,7 @@ pub enum PluginInstruction {
     },
     WatchFilesystem,
     ListClientsToPlugin(SessionLayoutMetadata, PluginId, ClientId),
+    UpdateClientPid(ClientId, u32),
     Exit,
 }
 
@@ -204,6 +205,7 @@ impl From<&PluginInstruction> for PluginContext {
                 PluginContext::FailedToWriteConfigToDisk
             },
             PluginInstruction::ListClientsToPlugin(..) => PluginContext::ListClientsToPlugin,
+            PluginInstruction::UpdateClientPid(..) => PluginContext::UpdateClientPid,
         }
     }
 }
@@ -237,6 +239,8 @@ pub(crate) fn plugin_thread_main(
     // use this channel to ensure that tasks spawned from this thread terminate before exiting
     // https://tokio.rs/tokio/topics/shutdown#waiting-for-things-to-finish-shutting-down
     let (shutdown_send, shutdown_receive) = channel::bounded::<()>(1);
+    let mut client_pids = HashMap::new();
+    client_pids.insert(initiating_client_id, client_attributes.pid);
 
     let mut wasm_bridge = WasmBridge::new(
         bus.senders.clone(),
@@ -608,6 +612,9 @@ pub(crate) fn plugin_thread_main(
                     },
                 }
             },
+            PluginInstruction::UpdateClientPid(client_id, client_pid) => {
+                client_pids.insert(client_id, client_pid);
+            },
             PluginInstruction::ListClientsToPlugin(
                 mut session_layout_metadata,
                 plugin_id,
@@ -624,6 +631,7 @@ pub(crate) fn plugin_thread_main(
                 for (client_metadata_id, client_metadata) in clients_metadata.iter_mut() {
                     let is_current_client = client_metadata_id == &client_id;
                     client_list_for_plugin.push(ClientInfo::new(
+                        *client_pids.get(&client_id).unwrap(),
                         *client_metadata_id,
                         client_metadata.get_pane_id().into(),
                         client_metadata.stringify_command(&default_editor),

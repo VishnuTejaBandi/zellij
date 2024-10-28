@@ -630,6 +630,18 @@ pub fn start_server(mut os_input: Box<dyn ServerOsApi>, socket_path: PathBuf) {
                     .unwrap()
                     .set_client_size(client_id, client_attributes.size);
 
+                session_data
+                    .read()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .senders
+                    .send_to_plugin(PluginInstruction::UpdateClientPid(
+                        client_id,
+                        client_attributes.pid,
+                    ))
+                    .unwrap();
+
                 let default_shell = runtime_config_options.default_shell.map(|shell| {
                     TerminalAction::RunCommand(RunCommand {
                         command: shell,
@@ -780,6 +792,11 @@ pub fn start_server(mut os_input: Box<dyn ServerOsApi>, socket_path: PathBuf) {
                         Some(client_id),
                         Event::ModeUpdate(mode_info),
                     )]))
+                    .unwrap();
+
+                session_data
+                    .senders
+                    .send_to_plugin(PluginInstruction::UpdateClientPid(client_id, attrs.pid))
                     .unwrap();
             },
             ServerInstruction::UnblockInputThread => {

@@ -42,6 +42,7 @@ pub enum ClientType {
 pub struct ClientAttributes {
     pub size: Size,
     pub style: Style,
+    pub pid: u32,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]

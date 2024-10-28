@@ -435,6 +435,7 @@ pub enum PluginContext {
     Reconfigure,
     FailedToWriteConfigToDisk,
     ListClientsToPlugin,
+    UpdateClientPid,
 }
 
 /// Stack call representations corresponding to the different types of [`ClientInstruction`]s.

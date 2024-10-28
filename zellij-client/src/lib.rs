@@ -220,6 +220,7 @@ pub fn start_client(
 
     let full_screen_ws = os_input.get_terminal_size_using_fd(0);
     let client_attributes = ClientAttributes {
+        pid: sysinfo::get_current_pid().unwrap().as_u32(),
         size: full_screen_ws,
         style: Style {
             colors: palette,
@@ -619,6 +620,7 @@ pub fn start_server_detached(
         .unwrap_or_else(|| os_input.load_palette());
 
     let client_attributes = ClientAttributes {
+        pid: sysinfo::get_current_pid().unwrap().as_u32(),
         size: Size { rows: 50, cols: 50 }, // just so size is not 0, it doesn't matter because we
         // immediately detach
         style: Style {

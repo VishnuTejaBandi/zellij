@@ -342,6 +342,7 @@ impl TryFrom<ProtobufClientInfo> for ClientInfo {
     type Error = &'static str;
     fn try_from(protobuf_client_info: ProtobufClientInfo) -> Result<Self, &'static str> {
         Ok(ClientInfo::new(
+            protobuf_client_info.client_pid,
             protobuf_client_info.client_id as u16,
             protobuf_client_info
                 .pane_id
@@ -357,6 +358,7 @@ impl TryFrom<ClientInfo> for ProtobufClientInfo {
     type Error = &'static str;
     fn try_from(client_info: ClientInfo) -> Result<Self, &'static str> {
         Ok(ProtobufClientInfo {
+            client_pid: client_info.client_pid,
             client_id: client_info.client_id as u32,
             pane_id: Some(client_info.pane_id.try_into()?),
             running_command: client_info.running_command,

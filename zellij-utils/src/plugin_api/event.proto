@@ -89,10 +89,11 @@ message ListClientsPayload {
 }
 
 message ClientInfo {
-  uint32 client_id = 1;
-  PaneId pane_id = 2;
-  string running_command = 3;
-  bool is_current_client = 4;
+  uint32 client_pid = 1;
+  uint32 client_id = 2;
+  PaneId pane_id = 3;
+  string running_command = 4;
+  bool is_current_client = 5;
 }
 
 message FailedToWriteConfigToDiskPayload {
