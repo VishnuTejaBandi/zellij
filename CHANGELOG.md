@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
+* fix(input): keypresses not being identified properly with kitty keyboard protocol in some terminals (https://github.com/zellij-org/zellij/pull/3725)
+
+## [0.41.0] - 2024-11-04
 * feat(layouts): allow consuming a layout through a url (https://github.com/zellij-org/zellij/pull/3351 and https://github.com/zellij-org/zellij/pull/3697)
 * dependencies: eliminate future incompatibility warnings (https://github.com/zellij-org/zellij/pull/3315)
 * fix(plugins): occasional out of order events on startup (https://github.com/zellij-org/zellij/pull/3367)
@@ -18,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 * feat(ui): status-bar redesign (https://github.com/zellij-org/zellij/pull/3475, https://github.com/zellij-org/zellij/pull/3688 and https://github.com/zellij-org/zellij/pull/3691)
 * chore: Update MSRV in Cargo.toml (https://github.com/zellij-org/zellij/pull/3482)
 * fix(terminal): prevent escaping pane through scroll region (https://github.com/zellij-org/zellij/pull/3491)
-* feat(ui): configuration screen + non-colliding keybindings setup at runtime (https://github.com/zellij-org/zellij/pull/3502 and https://github.com/zellij-org/zellij/pull/3686)
+* feat(ui): configuration screen + non-colliding keybindings setup at runtime (https://github.com/zellij-org/zellij/pull/3502, https://github.com/zellij-org/zellij/pull/3686, https://github.com/zellij-org/zellij/pull/3713 and https://github.com/zellij-org/zellij/pull/3715)
 * feat(plugins): allow starting a new session with a stringified layout (https://github.com/zellij-org/zellij/pull/3503)
 * fix(resurrection): do not serialize garbage sessions to the cache (https://github.com/zellij-org/zellij/pull/3504)
 * fix(startup): do not parse resurrectable sessions ons startup (https://github.com/zellij-org/zellij/pull/3505)
