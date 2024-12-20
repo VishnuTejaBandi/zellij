@@ -699,15 +699,26 @@ impl TiledPanes {
                             .render_pane_contents_for_client(*client_id)
                             .with_context(err_context)?;
                     }
+                    let is_floating = false;
                     if self.draw_pane_frames {
                         pane_contents_and_ui
-                            .render_pane_frame(*client_id, client_mode, self.session_is_mirrored)
+                            .render_pane_frame(
+                                *client_id,
+                                client_mode,
+                                self.session_is_mirrored,
+                                is_floating,
+                            )
                             .with_context(err_context)?;
                     } else if pane_is_stacked {
                         // if we have no pane frames but the pane is stacked, we need to render its
                         // frame which will amount to only rendering the title line
                         pane_contents_and_ui
-                            .render_pane_frame(*client_id, client_mode, self.session_is_mirrored)
+                            .render_pane_frame(
+                                *client_id,
+                                client_mode,
+                                self.session_is_mirrored,
+                                is_floating,
+                            )
                             .with_context(err_context)?;
                         // we also need to render its boundaries as normal
                         let boundaries = client_id_to_boundaries
@@ -1620,8 +1631,9 @@ impl TiledPanes {
                 viewport_pane.reset_size_and_position_override();
             }
             self.panes_to_hide.clear();
-            let fullscreen_pane = self.get_pane_mut(fullscreen_pane_id).unwrap();
-            fullscreen_pane.reset_size_and_position_override();
+            if let Some(fullscreen_pane) = self.get_pane_mut(fullscreen_pane_id) {
+                fullscreen_pane.reset_size_and_position_override();
+            }
             self.set_force_render();
             let display_area = *self.display_area.borrow();
             self.resize(display_area);

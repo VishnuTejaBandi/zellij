@@ -186,7 +186,11 @@ impl RunPluginOrAlias {
                         // configuration (i.e. None)
                         .and_then(|c| if c.inner().is_empty() { None } else { Some(c) })
                         == run_alias.configuration.as_ref().and_then(|c| {
-                            if c.inner().is_empty() {
+                            let mut to_compare = c.inner().clone();
+                            // caller_cwd is a special attribute given to alias and should not be
+                            // considered when weighing configuration equivalency
+                            to_compare.remove("caller_cwd");
+                            if to_compare.is_empty() {
                                 None
                             } else {
                                 Some(c)
@@ -734,6 +738,7 @@ pub struct FloatingPaneLayout {
     pub width: Option<PercentOrFixed>,
     pub x: Option<PercentOrFixed>,
     pub y: Option<PercentOrFixed>,
+    pub pinned: Option<bool>,
     pub run: Option<Run>,
     pub focus: Option<bool>,
     pub already_running: bool,
@@ -748,6 +753,7 @@ impl FloatingPaneLayout {
             width: None,
             x: None,
             y: None,
+            pinned: None,
             run: None,
             focus: None,
             already_running: false,
@@ -1693,6 +1699,7 @@ fn split_space(
                 cols: split_dimension,
                 rows: inherited_dimension,
                 is_stacked: layout.children_are_stacked,
+                is_pinned: false,
             },
             SplitDirection::Horizontal => PaneGeom {
                 x: space_to_split.x,
@@ -1700,6 +1707,7 @@ fn split_space(
                 cols: inherited_dimension,
                 rows: split_dimension,
                 is_stacked: layout.children_are_stacked,
+                is_pinned: false,
             },
         };
         split_geom.push(geom);
