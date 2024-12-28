@@ -7,10 +7,11 @@ message PipeMessage {
     optional string cli_source_id = 2;
     optional uint32 plugin_source_id = 3;
     optional uint32 source_client_id = 4;
-    string name = 5;
-    optional string payload = 6;
-    repeated Arg args = 7;
-    bool is_private = 8;
+    optional uint32 source_pid = 5;
+    string name = 6;
+    optional string payload = 7;
+    repeated Arg args = 8;
+    bool is_private = 9;
 }
 
 enum PipeSource {

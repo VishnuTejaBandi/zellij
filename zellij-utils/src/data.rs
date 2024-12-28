@@ -1628,7 +1628,10 @@ pub enum HttpVerb {
 pub enum PipeSource {
     Cli(String), // String is the pipe_id of the CLI pipe (used for blocking/unblocking)
     Plugin(u32), // u32 is the lugin id
-    Keybind { source_client_id: ClientId }, // TODO: consider including the actual keybind here?
+    Keybind {
+        source_client_id: ClientId,
+        source_pid: u32,
+    }, // TODO: consider including the actual keybind here?
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

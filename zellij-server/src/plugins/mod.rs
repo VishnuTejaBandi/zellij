@@ -411,6 +411,7 @@ pub(crate) fn plugin_thread_main(
             },
             PluginInstruction::RemoveClient(client_id) => {
                 wasm_bridge.remove_client(client_id);
+                client_pids.remove(&client_id);
             },
             PluginInstruction::NewTab(
                 cwd,
@@ -632,13 +633,15 @@ pub(crate) fn plugin_thread_main(
                 let default_editor = session_layout_metadata.default_editor.clone();
                 for (client_metadata_id, client_metadata) in clients_metadata.iter_mut() {
                     let is_current_client = client_metadata_id == &client_id;
-                    client_list_for_plugin.push(ClientInfo::new(
-                        *client_pids.get(&client_id).unwrap(),
-                        *client_metadata_id,
-                        client_metadata.get_pane_id().into(),
-                        client_metadata.stringify_command(&default_editor),
-                        is_current_client,
-                    ));
+                    if (client_pids.get(&client_id).is_some()) {
+                        client_list_for_plugin.push(ClientInfo::new(
+                            *client_pids.get(&client_id).unwrap(),
+                            *client_metadata_id,
+                            client_metadata.get_pane_id().into(),
+                            client_metadata.stringify_command(&default_editor),
+                            is_current_client,
+                        ));
+                    }
                 }
                 let updates = vec![(
                     Some(plugin_id),
@@ -734,6 +737,7 @@ pub(crate) fn plugin_thread_main(
                         PipeMessage::new(
                             PipeSource::Keybind {
                                 source_client_id: cli_client_id,
+                                source_pid: *(client_pids.get(&cli_client_id).unwrap()),
                             },
                             name,
                             &payload,
@@ -748,6 +752,7 @@ pub(crate) fn plugin_thread_main(
                             pipe_to_specific_plugins(
                                 PipeSource::Keybind {
                                     source_client_id: cli_client_id,
+                                    source_pid: *(client_pids.get(&cli_client_id).unwrap()),
                                 },
                                 &plugin_url,
                                 &configuration,
@@ -771,6 +776,7 @@ pub(crate) fn plugin_thread_main(
                             pipe_to_all_plugins(
                                 PipeSource::Keybind {
                                     source_client_id: cli_client_id,
+                                    source_pid: *(client_pids.get(&cli_client_id).unwrap()),
                                 },
                                 &name,
                                 &payload,

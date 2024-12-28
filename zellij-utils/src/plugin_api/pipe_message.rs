@@ -13,16 +13,18 @@ impl TryFrom<ProtobufPipeMessage> for PipeMessage {
             protobuf_pipe_message.cli_source_id,
             protobuf_pipe_message.plugin_source_id,
             protobuf_pipe_message.source_client_id,
+            protobuf_pipe_message.source_pid,
         ) {
-            (Some(ProtobufPipeSource::Cli), Some(cli_source_id), _, _) => {
+            (Some(ProtobufPipeSource::Cli), Some(cli_source_id), _, _, _) => {
                 PipeSource::Cli(cli_source_id)
             },
-            (Some(ProtobufPipeSource::Plugin), _, Some(plugin_source_id), _) => {
+            (Some(ProtobufPipeSource::Plugin), _, Some(plugin_source_id), _, _) => {
                 PipeSource::Plugin(plugin_source_id)
             },
-            (Some(ProtobufPipeSource::Keybind), _, _, Some(source_client_id)) => {
+            (Some(ProtobufPipeSource::Keybind), _, _, Some(source_client_id), Some(source_pid)) => {
                 PipeSource::Keybind {
                     source_client_id: source_client_id as u16,
+                    source_pid,
                 }
             },
             _ => return Err("Invalid PipeSource or payload"),
@@ -48,27 +50,33 @@ impl TryFrom<ProtobufPipeMessage> for PipeMessage {
 impl TryFrom<PipeMessage> for ProtobufPipeMessage {
     type Error = &'static str;
     fn try_from(pipe_message: PipeMessage) -> Result<Self, &'static str> {
-        let (source, cli_source_id, plugin_source_id, source_client_id) = match pipe_message.source
-        {
-            PipeSource::Cli(input_pipe_id) => (
-                ProtobufPipeSource::Cli as i32,
-                Some(input_pipe_id),
-                None,
-                None,
-            ),
-            PipeSource::Plugin(plugin_id) => (
-                ProtobufPipeSource::Plugin as i32,
-                None,
-                Some(plugin_id),
-                None,
-            ),
-            PipeSource::Keybind { source_client_id } => (
-                ProtobufPipeSource::Keybind as i32,
-                None,
-                None,
-                Some(source_client_id as u32),
-            ),
-        };
+        let (source, cli_source_id, plugin_source_id, source_client_id, source_pid) =
+            match pipe_message.source {
+                PipeSource::Cli(input_pipe_id) => (
+                    ProtobufPipeSource::Cli as i32,
+                    Some(input_pipe_id),
+                    None,
+                    None,
+                    None,
+                ),
+                PipeSource::Plugin(plugin_id) => (
+                    ProtobufPipeSource::Plugin as i32,
+                    None,
+                    Some(plugin_id),
+                    None,
+                    None,
+                ),
+                PipeSource::Keybind {
+                    source_client_id,
+                    source_pid,
+                } => (
+                    ProtobufPipeSource::Keybind as i32,
+                    None,
+                    None,
+                    Some(source_client_id as u32),
+                    Some(source_pid),
+                ),
+            };
         let name = pipe_message.name;
         let payload = pipe_message.payload;
         let args: Vec<_> = pipe_message
@@ -82,6 +90,7 @@ impl TryFrom<PipeMessage> for ProtobufPipeMessage {
             cli_source_id,
             plugin_source_id,
             source_client_id,
+            source_pid,
             name,
             payload,
             args,

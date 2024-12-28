@@ -9,13 +9,15 @@ pub struct PipeMessage {
     pub plugin_source_id: ::core::option::Option<u32>,
     #[prost(uint32, optional, tag = "4")]
     pub source_client_id: ::core::option::Option<u32>,
-    #[prost(string, tag = "5")]
+    #[prost(uint32, optional, tag = "5")]
+    pub source_pid: ::core::option::Option<u32>,
+    #[prost(string, tag = "6")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, optional, tag = "6")]
+    #[prost(string, optional, tag = "7")]
     pub payload: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(message, repeated, tag = "7")]
+    #[prost(message, repeated, tag = "8")]
     pub args: ::prost::alloc::vec::Vec<Arg>,
-    #[prost(bool, tag = "8")]
+    #[prost(bool, tag = "9")]
     pub is_private: bool,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
