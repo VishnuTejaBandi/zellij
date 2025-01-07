@@ -1908,4 +1908,5 @@ pub enum PluginCommand {
     ListClients,
     ChangeHostFolder(PathBuf),
     SetFloatingPanePinned(PaneId, bool), // bool -> should be pinned
+    StackPanes(Vec<PaneId>),
 }
