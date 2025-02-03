@@ -11,7 +11,7 @@ pub struct Event {
     pub name: i32,
     #[prost(
         oneof = "event::Payload",
-        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25"
+        tags = "2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26"
     )]
     pub payload: ::core::option::Option<event::Payload>,
 }
@@ -68,7 +68,15 @@ pub mod event {
         HostFolderChangedPayload(super::HostFolderChangedPayload),
         #[prost(message, tag = "25")]
         FailedToChangeHostFolderPayload(super::FailedToChangeHostFolderPayload),
+        #[prost(message, tag = "26")]
+        PastedTextPayload(super::PastedTextPayload),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PastedTextPayload {
+    #[prost(string, tag = "1")]
+    pub pasted_text: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -408,6 +416,14 @@ pub struct TabInfo {
     pub active_swap_layout_name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(bool, tag = "10")]
     pub is_swap_layout_dirty: bool,
+    #[prost(uint32, tag = "11")]
+    pub viewport_rows: u32,
+    #[prost(uint32, tag = "12")]
+    pub viewport_columns: u32,
+    #[prost(uint32, tag = "13")]
+    pub display_area_rows: u32,
+    #[prost(uint32, tag = "14")]
+    pub display_area_columns: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -424,6 +440,10 @@ pub struct ModeUpdatePayload {
     pub session_name: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(enumeration = "super::input_mode::InputMode", optional, tag = "6")]
     pub base_mode: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "7")]
+    pub editor: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "8")]
+    pub shell: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -488,6 +508,7 @@ pub enum EventType {
     ListClients = 26,
     HostFolderChanged = 27,
     FailedToChangeHostFolder = 28,
+    PastedText = 29,
 }
 impl EventType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -525,6 +546,7 @@ impl EventType {
             EventType::ListClients => "ListClients",
             EventType::HostFolderChanged => "HostFolderChanged",
             EventType::FailedToChangeHostFolder => "FailedToChangeHostFolder",
+            EventType::PastedText => "PastedText",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -559,6 +581,7 @@ impl EventType {
             "ListClients" => Some(Self::ListClients),
             "HostFolderChanged" => Some(Self::HostFolderChanged),
             "FailedToChangeHostFolder" => Some(Self::FailedToChangeHostFolder),
+            "PastedText" => Some(Self::PastedText),
             _ => None,
         }
     }

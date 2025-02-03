@@ -225,8 +225,8 @@ impl FromStr for BareKey {
             "tab" => Ok(BareKey::Tab),
             "esc" => Ok(BareKey::Esc),
             "enter" => Ok(BareKey::Enter),
-            "capsLock" => Ok(BareKey::CapsLock),
-            "scrollLock" => Ok(BareKey::ScrollLock),
+            "capslock" => Ok(BareKey::CapsLock),
+            "scrolllock" => Ok(BareKey::ScrollLock),
             "numlock" => Ok(BareKey::NumLock),
             "printscreen" => Ok(BareKey::PrintScreen),
             "pause" => Ok(BareKey::Pause),
@@ -914,6 +914,7 @@ pub enum Event {
     ListClients(Vec<ClientInfo>),
     HostFolderChanged(PathBuf),               // PathBuf -> new host folder
     FailedToChangeHostFolder(Option<String>), // String -> the error we got when changing
+    PastedText(String),
 }
 
 #[derive(
@@ -1149,6 +1150,8 @@ pub struct ModeInfo {
     pub style: Style,
     pub capabilities: PluginCapabilities,
     pub session_name: Option<String>,
+    pub editor: Option<PathBuf>,
+    pub shell: Option<PathBuf>,
 }
 
 impl ModeInfo {
@@ -1294,6 +1297,16 @@ pub struct TabInfo {
     pub active_swap_layout_name: Option<String>,
     /// Whether the user manually changed the layout, moving out of the swap layout scheme
     pub is_swap_layout_dirty: bool,
+    /// Row count in the viewport (including all non-ui panes, eg. will excluse the status bar)
+    pub viewport_rows: usize,
+    /// Column count in the viewport (including all non-ui panes, eg. will excluse the status bar)
+    pub viewport_columns: usize,
+    /// Row count in the display area (including all panes, will typically be larger than the
+    /// viewport)
+    pub display_area_rows: usize,
+    /// Column count in the display area (including all panes, will typically be larger than the
+    /// viewport)
+    pub display_area_columns: usize,
 }
 
 /// The `PaneManifest` contains a dictionary of panes, indexed by the tab position (0 indexed).
@@ -1514,6 +1527,25 @@ pub struct NewPluginArgs {
 pub enum PaneId {
     Terminal(u32),
     Plugin(u32),
+}
+
+impl FromStr for PaneId {
+    type Err = Box<dyn std::error::Error>;
+    fn from_str(stringified_pane_id: &str) -> Result<Self, Self::Err> {
+        if let Some(terminal_stringified_pane_id) = stringified_pane_id.strip_prefix("terminal_") {
+            u32::from_str_radix(terminal_stringified_pane_id, 10)
+                .map(|id| PaneId::Terminal(id))
+                .map_err(|e| e.into())
+        } else if let Some(plugin_pane_id) = stringified_pane_id.strip_prefix("plugin_") {
+            u32::from_str_radix(plugin_pane_id, 10)
+                .map(|id| PaneId::Plugin(id))
+                .map_err(|e| e.into())
+        } else {
+            u32::from_str_radix(&stringified_pane_id, 10)
+                .map(|id| PaneId::Terminal(id))
+                .map_err(|e| e.into())
+        }
+    }
 }
 
 impl MessageToPlugin {
@@ -1909,4 +1941,14 @@ pub enum PluginCommand {
     ChangeHostFolder(PathBuf),
     SetFloatingPanePinned(PaneId, bool), // bool -> should be pinned
     StackPanes(Vec<PaneId>),
+    ChangeFloatingPanesCoordinates(Vec<(PaneId, FloatingPaneCoordinates)>),
+    OpenCommandPaneNearPlugin(CommandToRun, Context),
+    OpenTerminalNearPlugin(FileToOpen),
+    OpenTerminalFloatingNearPlugin(FileToOpen, Option<FloatingPaneCoordinates>),
+    OpenTerminalInPlaceOfPlugin(FileToOpen),
+    OpenCommandPaneFloatingNearPlugin(CommandToRun, Option<FloatingPaneCoordinates>, Context),
+    OpenCommandPaneInPlaceOfPlugin(CommandToRun, Context),
+    OpenFileNearPlugin(FileToOpen, Context),
+    OpenFileFloatingNearPlugin(FileToOpen, Option<FloatingPaneCoordinates>, Context),
+    OpenFileInPlaceOfPlugin(FileToOpen, Context),
 }

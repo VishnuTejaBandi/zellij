@@ -2241,6 +2241,8 @@ impl Options {
             "support_kitty_keyboard_protocol"
         )
         .map(|(v, _)| v);
+        let stacked_resize =
+            kdl_property_first_arg_as_bool_or_error!(kdl_options, "stacked_resize").map(|(v, _)| v);
         Ok(Options {
             simplified_ui,
             theme,
@@ -2269,6 +2271,7 @@ impl Options {
             serialization_interval,
             disable_session_metadata,
             support_kitty_keyboard_protocol,
+            stacked_resize,
         })
     }
     pub fn from_string(stringified_keybindings: &String) -> Result<Self, ConfigError> {
@@ -3068,6 +3071,34 @@ impl Options {
             None
         }
     }
+    fn stacked_resize_to_kdl(&self, add_comments: bool) -> Option<KdlNode> {
+        let comment_text = format!(
+            "{}\n{}\n{}\n{}",
+            " ",
+            "// Whether to stack panes when resizing beyond a certain size",
+            "// Default: true",
+            "// ",
+        );
+
+        let create_node = |node_value: bool| -> KdlNode {
+            let mut node = KdlNode::new("stacked_resize");
+            node.push(KdlValue::Bool(node_value));
+            node
+        };
+        if let Some(stacked_resize) = self.stacked_resize {
+            let mut node = create_node(stacked_resize);
+            if add_comments {
+                node.set_leading(format!("{}\n", comment_text));
+            }
+            Some(node)
+        } else if add_comments {
+            let mut node = create_node(false);
+            node.set_leading(format!("{}\n// ", comment_text));
+            Some(node)
+        } else {
+            None
+        }
+    }
     pub fn to_kdl(&self, add_comments: bool) -> Vec<KdlNode> {
         let mut nodes = vec![];
         if let Some(simplified_ui_node) = self.simplified_ui_to_kdl(add_comments) {
@@ -3154,6 +3185,9 @@ impl Options {
             self.support_kitty_keyboard_protocol_to_kdl(add_comments)
         {
             nodes.push(support_kitty_keyboard_protocol);
+        }
+        if let Some(stacked_resize) = self.stacked_resize_to_kdl(add_comments) {
+            nodes.push(stacked_resize);
         }
         nodes
     }
@@ -4225,6 +4259,15 @@ impl TabInfo {
                     .map(|s| s.to_owned())
             }};
         }
+        macro_rules! optional_int_node {
+            ($name:expr, $type:ident) => {{
+                kdl_document
+                    .get($name)
+                    .and_then(|n| n.entries().iter().next())
+                    .and_then(|e| e.value().as_i64())
+                    .map(|e| e as $type)
+            }};
+        }
         macro_rules! bool_node {
             ($name:expr) => {{
                 kdl_document
@@ -4254,6 +4297,10 @@ impl TabInfo {
             }
         }
         let active_swap_layout_name = optional_string_node!("active_swap_layout_name");
+        let viewport_rows = optional_int_node!("viewport_rows", usize).unwrap_or(0);
+        let viewport_columns = optional_int_node!("viewport_columns", usize).unwrap_or(0);
+        let display_area_rows = optional_int_node!("display_area_rows", usize).unwrap_or(0);
+        let display_area_columns = optional_int_node!("display_area_columns", usize).unwrap_or(0);
         let is_swap_layout_dirty = bool_node!("is_swap_layout_dirty");
         Ok(TabInfo {
             position,
@@ -4266,6 +4313,10 @@ impl TabInfo {
             other_focused_clients,
             active_swap_layout_name,
             is_swap_layout_dirty,
+            viewport_rows,
+            viewport_columns,
+            display_area_rows,
+            display_area_columns,
         })
     }
     pub fn encode_to_kdl(&self) -> KdlDocument {
@@ -4312,6 +4363,22 @@ impl TabInfo {
             active_swap_layout.push(active_swap_layout_name.to_string());
             kdl_doucment.nodes_mut().push(active_swap_layout);
         }
+
+        let mut viewport_rows = KdlNode::new("viewport_rows");
+        viewport_rows.push(self.viewport_rows as i64);
+        kdl_doucment.nodes_mut().push(viewport_rows);
+
+        let mut viewport_columns = KdlNode::new("viewport_columns");
+        viewport_columns.push(self.viewport_columns as i64);
+        kdl_doucment.nodes_mut().push(viewport_columns);
+
+        let mut display_area_columns = KdlNode::new("display_area_columns");
+        display_area_columns.push(self.display_area_columns as i64);
+        kdl_doucment.nodes_mut().push(display_area_columns);
+
+        let mut display_area_rows = KdlNode::new("display_area_rows");
+        display_area_rows.push(self.display_area_rows as i64);
+        kdl_doucment.nodes_mut().push(display_area_rows);
 
         let mut is_swap_layout_dirty = KdlNode::new("is_swap_layout_dirty");
         is_swap_layout_dirty.push(self.is_swap_layout_dirty);
@@ -4657,6 +4724,10 @@ fn serialize_and_deserialize_session_info_with_data() {
                 other_focused_clients: vec![2, 3],
                 active_swap_layout_name: Some("BASE".to_owned()),
                 is_swap_layout_dirty: true,
+                viewport_rows: 10,
+                viewport_columns: 10,
+                display_area_rows: 10,
+                display_area_columns: 10,
             },
             TabInfo {
                 position: 1,
@@ -4669,6 +4740,10 @@ fn serialize_and_deserialize_session_info_with_data() {
                 other_focused_clients: vec![2, 3],
                 active_swap_layout_name: None,
                 is_swap_layout_dirty: false,
+                viewport_rows: 10,
+                viewport_columns: 10,
+                display_area_rows: 10,
+                display_area_columns: 10,
             },
         ],
         panes: PaneManifest { panes },
