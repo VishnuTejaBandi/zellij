@@ -9,7 +9,8 @@ use std::time::Duration;
 
 use log::{debug, warn};
 use zellij_utils::data::{
-    Direction, KeyWithModifier, PaneManifest, PluginPermission, Resize, ResizeStrategy, SessionInfo,
+    Direction, KeyWithModifier, PaneManifest, PluginPermission, Resize, ResizeStrategy,
+    SessionInfo, Styling,
 };
 use zellij_utils::errors::prelude::*;
 use zellij_utils::input::command::RunCommand;
@@ -348,6 +349,7 @@ pub enum ScreenInstruction {
         HoldForCommand,
         Option<InitialTitle>,
         Option<Run>,
+        bool, // close replaced pane
         ClientTabIndexOrPaneId,
     ),
     DumpLayoutToHd,
@@ -357,7 +359,7 @@ pub enum ScreenInstruction {
         client_id: ClientId,
         keybinds: Keybinds,
         default_mode: InputMode,
-        theme: Palette,
+        theme: Styling,
         simplified_ui: bool,
         default_shell: Option<PathBuf>,
         pane_frames: bool,
@@ -1539,6 +1541,8 @@ impl Screen {
             let (active_swap_layout_name, is_swap_layout_dirty) = tab.swap_layout_info();
             let tab_viewport = tab.get_viewport();
             let tab_display_area = tab.get_display_area();
+            let selectable_tiled_panes_count = tab.get_selectable_tiled_panes_count();
+            let selectable_floating_panes_count = tab.get_selectable_floating_panes_count();
             let tab_info_for_screen = TabInfo {
                 position: tab.position,
                 name: tab.name.clone(),
@@ -1554,6 +1558,8 @@ impl Screen {
                 viewport_columns: tab_viewport.cols,
                 display_area_rows: tab_display_area.rows,
                 display_area_columns: tab_display_area.cols,
+                selectable_tiled_panes_count,
+                selectable_floating_panes_count,
             };
             tab_infos_for_screen_state.insert(tab.position, tab_info_for_screen);
         }
@@ -1575,6 +1581,8 @@ impl Screen {
                 let (active_swap_layout_name, is_swap_layout_dirty) = tab.swap_layout_info();
                 let tab_viewport = tab.get_viewport();
                 let tab_display_area = tab.get_display_area();
+                let selectable_tiled_panes_count = tab.get_selectable_tiled_panes_count();
+                let selectable_floating_panes_count = tab.get_selectable_floating_panes_count();
                 let tab_info_for_plugins = TabInfo {
                     position: tab.position,
                     name: tab.name.clone(),
@@ -1590,6 +1598,8 @@ impl Screen {
                     viewport_columns: tab_viewport.cols,
                     display_area_rows: tab_display_area.rows,
                     display_area_columns: tab_display_area.cols,
+                    selectable_tiled_panes_count,
+                    selectable_floating_panes_count,
                 };
                 plugin_tab_updates.push(tab_info_for_plugins);
             }
@@ -1638,6 +1648,7 @@ impl Screen {
             is_current_session: true,
             available_layouts,
             plugins: Default::default(), // these are filled in by the wasm thread
+            tab_history: self.tab_history.clone(),
         };
         self.bus
             .senders
@@ -2388,10 +2399,16 @@ impl Screen {
         hold_for_command: HoldForCommand,
         run: Option<Run>,
         pane_title: Option<InitialTitle>,
+        close_replaced_pane: bool,
         client_id_tab_index_or_pane_id: ClientTabIndexOrPaneId,
     ) -> Result<()> {
         let suppress_pane = |tab: &mut Tab, pane_id: PaneId, new_pane_id: PaneId| {
-            let _ = tab.suppress_pane_and_replace_with_pid(pane_id, new_pane_id, run);
+            let _ = tab.suppress_pane_and_replace_with_pid(
+                pane_id,
+                new_pane_id,
+                close_replaced_pane,
+                run,
+            );
             if let Some(pane_title) = pane_title {
                 let _ = tab.rename_pane(pane_title.as_bytes().to_vec(), new_pane_id);
             }
@@ -2445,7 +2462,7 @@ impl Screen {
         &mut self,
         new_keybinds: Keybinds,
         new_default_mode: InputMode,
-        theme: Palette,
+        theme: Styling,
         simplified_ui: bool,
         default_shell: Option<PathBuf>,
         pane_frames: bool,
@@ -3842,13 +3859,31 @@ pub(crate) fn screen_thread_main(
                 screen.unblock_input()?;
             },
             ScreenInstruction::MouseEvent(event, client_id) => {
-                let state_changed = screen
+                match screen
                     .get_active_tab_mut(client_id)
-                    .and_then(|tab| tab.handle_mouse_event(&event, client_id))?;
-                if state_changed {
-                    screen.log_and_report_session_state()?;
+                    .and_then(|tab| tab.handle_mouse_event(&event, client_id))
+                {
+                    Ok(mouse_effect) => {
+                        if mouse_effect.state_changed {
+                            screen.log_and_report_session_state()?;
+                        }
+                        if !mouse_effect.leave_clipboard_message {
+                            let _ =
+                                screen
+                                    .bus
+                                    .senders
+                                    .send_to_plugin(PluginInstruction::Update(vec![(
+                                        None,
+                                        Some(client_id),
+                                        Event::InputReceived,
+                                    )]));
+                        }
+                        screen.render(None).non_fatal();
+                    },
+                    Err(e) => {
+                        log::error!("Failed to process MouseEvent: {}", e);
+                    },
                 }
-                screen.render(None)?;
             },
             ScreenInstruction::Copy(client_id) => {
                 active_tab!(screen, client_id, |tab: &mut Tab| tab
@@ -4175,6 +4210,7 @@ pub(crate) fn screen_thread_main(
                 });
                 let run_plugin = Run::Plugin(run_plugin_or_alias);
 
+                let close_replaced_pane = false;
                 if should_be_in_place {
                     if let Some(pane_id_to_replace) = pane_id_to_replace {
                         let client_tab_index_or_pane_id =
@@ -4184,6 +4220,7 @@ pub(crate) fn screen_thread_main(
                             None,
                             Some(run_plugin),
                             Some(pane_title),
+                            close_replaced_pane,
                             client_tab_index_or_pane_id,
                         )?;
                     } else if let Some(client_id) = client_id {
@@ -4194,6 +4231,7 @@ pub(crate) fn screen_thread_main(
                             None,
                             Some(run_plugin),
                             Some(pane_title),
+                            close_replaced_pane,
                             client_tab_index_or_pane_id,
                         )?;
                     } else {
@@ -4499,6 +4537,7 @@ pub(crate) fn screen_thread_main(
                 hold_for_command,
                 pane_title,
                 invoked_with,
+                close_replaced_pane,
                 client_id_tab_index_or_pane_id,
             ) => {
                 screen.replace_pane(
@@ -4506,6 +4545,7 @@ pub(crate) fn screen_thread_main(
                     hold_for_command,
                     invoked_with,
                     pane_title,
+                    close_replaced_pane,
                     client_id_tab_index_or_pane_id,
                 )?;
 

@@ -5,9 +5,7 @@ use crate::ui::boundaries::Boundaries;
 use crate::ui::pane_boundaries_frame::FrameParams;
 use crate::ClientId;
 use std::collections::HashMap;
-use zellij_utils::data::{
-    client_id_to_colors, single_client_color, InputMode, PaletteColor, Style,
-};
+use zellij_utils::data::{client_id_to_colors, InputMode, PaletteColor, Style};
 use zellij_utils::errors::prelude::*;
 pub struct PaneContentsAndUi<'a> {
     pane: &'a mut Box<dyn Pane>,
@@ -139,7 +137,10 @@ impl<'a> PaneContentsAndUi<'a> {
                 .with_context(|| {
                     format!("failed to render fake cursor if needed for client {client_id}")
                 })?;
-            if let Some(colors) = client_id_to_colors(*fake_cursor_client_id, self.style.colors) {
+            if let Some(colors) = client_id_to_colors(
+                *fake_cursor_client_id,
+                self.style.colors.multiplayer_user_colors,
+            ) {
                 let cursor_is_visible = self
                     .pane
                     .cursor_coordinates()
@@ -222,6 +223,7 @@ impl<'a> PaneContentsAndUi<'a> {
                 pane_is_stacked_under: self.pane_is_stacked_under,
                 should_draw_pane_frames: self.should_draw_pane_frames,
                 pane_is_floating,
+                content_offset: self.pane.get_content_offset(),
             }
         } else {
             FrameParams {
@@ -235,6 +237,7 @@ impl<'a> PaneContentsAndUi<'a> {
                 pane_is_stacked_under: self.pane_is_stacked_under,
                 should_draw_pane_frames: self.should_draw_pane_frames,
                 pane_is_floating,
+                content_offset: self.pane.get_content_offset(),
             }
         };
 
@@ -259,9 +262,17 @@ impl<'a> PaneContentsAndUi<'a> {
         client_mode: InputMode,
         boundaries: &mut Boundaries,
         session_is_mirrored: bool,
+        pane_is_on_top_of_stack: bool,
+        pane_is_on_bottom_of_stack: bool,
     ) {
         let color = self.frame_color(client_id, client_mode, session_is_mirrored);
-        boundaries.add_rect(self.pane.as_ref(), color);
+        boundaries.add_rect(
+            self.pane.as_ref(),
+            color,
+            pane_is_on_top_of_stack,
+            pane_is_on_bottom_of_stack,
+            self.pane_is_stacked_under,
+        );
     }
     fn frame_color(
         &self,
@@ -276,17 +287,19 @@ impl<'a> PaneContentsAndUi<'a> {
             match mode {
                 InputMode::Normal | InputMode::Locked => {
                     if session_is_mirrored || !self.multiple_users_exist_in_session {
-                        let colors = single_client_color(self.style.colors); // mirrored sessions only have one focused color
-                        Some(colors.0)
+                        Some(self.style.colors.frame_selected.base)
                     } else {
-                        let colors = client_id_to_colors(client_id, self.style.colors);
+                        let colors = client_id_to_colors(
+                            client_id,
+                            self.style.colors.multiplayer_user_colors,
+                        );
                         colors.map(|colors| colors.0)
                     }
                 },
-                _ => Some(self.style.colors.orange),
+                _ => Some(self.style.colors.frame_highlight.base),
             }
         } else {
-            None
+            self.style.colors.frame_unselected.map(|frame| frame.base)
         }
     }
 }

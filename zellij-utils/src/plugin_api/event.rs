@@ -2,14 +2,14 @@ pub use super::generated_api::api::{
     action::{Action as ProtobufAction, Position as ProtobufPosition},
     event::{
         event::Payload as ProtobufEventPayload, ClientInfo as ProtobufClientInfo,
-        CopyDestination as ProtobufCopyDestination, Event as ProtobufEvent,
-        EventNameList as ProtobufEventNameList, EventType as ProtobufEventType,
-        FileMetadata as ProtobufFileMetadata, InputModeKeybinds as ProtobufInputModeKeybinds,
-        KeyBind as ProtobufKeyBind, LayoutInfo as ProtobufLayoutInfo,
-        ModeUpdatePayload as ProtobufModeUpdatePayload, PaneId as ProtobufPaneId,
-        PaneInfo as ProtobufPaneInfo, PaneManifest as ProtobufPaneManifest,
-        PaneType as ProtobufPaneType, PluginInfo as ProtobufPluginInfo,
-        ResurrectableSession as ProtobufResurrectableSession,
+        ClientTabHistory as ProtobufClientTabHistory, CopyDestination as ProtobufCopyDestination,
+        Event as ProtobufEvent, EventNameList as ProtobufEventNameList,
+        EventType as ProtobufEventType, FileMetadata as ProtobufFileMetadata,
+        InputModeKeybinds as ProtobufInputModeKeybinds, KeyBind as ProtobufKeyBind,
+        LayoutInfo as ProtobufLayoutInfo, ModeUpdatePayload as ProtobufModeUpdatePayload,
+        PaneId as ProtobufPaneId, PaneInfo as ProtobufPaneInfo,
+        PaneManifest as ProtobufPaneManifest, PaneType as ProtobufPaneType,
+        PluginInfo as ProtobufPluginInfo, ResurrectableSession as ProtobufResurrectableSession,
         SessionManifest as ProtobufSessionManifest, TabInfo as ProtobufTabInfo, *,
     },
     input_mode::InputMode as ProtobufInputMode,
@@ -354,6 +354,10 @@ impl TryFrom<ProtobufEvent> for Event {
                     Ok(Event::PastedText(pasted_text_payload.pasted_text))
                 },
                 _ => Err("Malformed payload for the PastedText Event"),
+            },
+            Some(ProtobufEventType::ConfigWasWrittenToDisk) => match protobuf_event.payload {
+                None => Ok(Event::ConfigWasWrittenToDisk),
+                _ => Err("Malformed payload for the ConfigWasWrittenToDisk Event"),
             },
             None => Err("Unknown Protobuf Event"),
         }
@@ -727,6 +731,10 @@ impl TryFrom<Event> for ProtobufEvent {
                     pasted_text,
                 })),
             }),
+            Event::ConfigWasWrittenToDisk => Ok(ProtobufEvent {
+                name: ProtobufEventType::ConfigWasWrittenToDisk as i32,
+                payload: None,
+            }),
         }
     }
 }
@@ -765,10 +773,23 @@ impl TryFrom<SessionInfo> for ProtobufSessionManifest {
                 .into_iter()
                 .map(|p| ProtobufPluginInfo::from(p))
                 .collect(),
+            tab_history: session_info
+                .tab_history
+                .into_iter()
+                .map(|t| ProtobufClientTabHistory::from(t))
+                .collect(),
         })
     }
 }
 
+impl From<(u16, Vec<usize>)> for ProtobufClientTabHistory {
+    fn from((client_id, tab_history): (u16, Vec<usize>)) -> ProtobufClientTabHistory {
+        ProtobufClientTabHistory {
+            client_id: client_id as u32,
+            tab_history: tab_history.into_iter().map(|t| t as u32).collect(),
+        }
+    }
+}
 impl From<(u32, PluginInfo)> for ProtobufPluginInfo {
     fn from((plugin_id, plugin_info): (u32, PluginInfo)) -> ProtobufPluginInfo {
         ProtobufPluginInfo {
@@ -815,6 +836,16 @@ impl TryFrom<ProtobufSessionManifest> for SessionInfo {
                 },
             );
         }
+        let mut tab_history = BTreeMap::new();
+        for client_tab_history in protobuf_session_manifest.tab_history.into_iter() {
+            let client_id = client_tab_history.client_id;
+            let tab_history_for_client = client_tab_history
+                .tab_history
+                .iter()
+                .map(|t| *t as usize)
+                .collect();
+            tab_history.insert(client_id as u16, tab_history_for_client);
+        }
         Ok(SessionInfo {
             name: protobuf_session_manifest.name,
             tabs: protobuf_session_manifest
@@ -831,6 +862,7 @@ impl TryFrom<ProtobufSessionManifest> for SessionInfo {
                 .filter_map(|l| LayoutInfo::try_from(l).ok())
                 .collect(),
             plugins,
+            tab_history,
         })
     }
 }
@@ -938,6 +970,12 @@ impl TryFrom<MouseEventPayload> for Mouse {
                 ),
                 _ => Err("Malformed payload for mouse release"),
             },
+            Some(MouseEventName::MouseHover) => match mouse_event_payload.mouse_event_payload {
+                Some(mouse_event_payload::MouseEventPayload::Position(position)) => Ok(
+                    Mouse::Hover(position.line as isize, position.column as usize),
+                ),
+                _ => Err("Malformed payload for mouse hover"),
+            },
             None => Err("Malformed payload for MouseEventName"),
         }
     }
@@ -988,6 +1026,15 @@ impl TryFrom<Mouse> for MouseEventPayload {
             }),
             Mouse::Release(line, column) => Ok(MouseEventPayload {
                 mouse_event_name: MouseEventName::MouseRelease as i32,
+                mouse_event_payload: Some(mouse_event_payload::MouseEventPayload::Position(
+                    ProtobufPosition {
+                        line: line as i64,
+                        column: column as i64,
+                    },
+                )),
+            }),
+            Mouse::Hover(line, column) => Ok(MouseEventPayload {
+                mouse_event_name: MouseEventName::MouseHover as i32,
                 mouse_event_payload: Some(mouse_event_payload::MouseEventPayload::Position(
                     ProtobufPosition {
                         line: line as i64,
@@ -1088,6 +1135,9 @@ impl TryFrom<ProtobufTabInfo> for TabInfo {
             viewport_columns: protobuf_tab_info.viewport_columns as usize,
             display_area_rows: protobuf_tab_info.display_area_rows as usize,
             display_area_columns: protobuf_tab_info.display_area_columns as usize,
+            selectable_tiled_panes_count: protobuf_tab_info.selectable_tiled_panes_count as usize,
+            selectable_floating_panes_count: protobuf_tab_info.selectable_floating_panes_count
+                as usize,
         })
     }
 }
@@ -1114,6 +1164,8 @@ impl TryFrom<TabInfo> for ProtobufTabInfo {
             viewport_columns: tab_info.viewport_columns as u32,
             display_area_rows: tab_info.display_area_rows as u32,
             display_area_columns: tab_info.display_area_columns as u32,
+            selectable_tiled_panes_count: tab_info.selectable_tiled_panes_count as u32,
+            selectable_floating_panes_count: tab_info.selectable_floating_panes_count as u32,
         })
     }
 }
@@ -1293,6 +1345,7 @@ impl TryFrom<ProtobufEventType> for EventType {
             ProtobufEventType::HostFolderChanged => EventType::HostFolderChanged,
             ProtobufEventType::FailedToChangeHostFolder => EventType::FailedToChangeHostFolder,
             ProtobufEventType::PastedText => EventType::PastedText,
+            ProtobufEventType::ConfigWasWrittenToDisk => EventType::ConfigWasWrittenToDisk,
         })
     }
 }
@@ -1331,6 +1384,7 @@ impl TryFrom<EventType> for ProtobufEventType {
             EventType::HostFolderChanged => ProtobufEventType::HostFolderChanged,
             EventType::FailedToChangeHostFolder => ProtobufEventType::FailedToChangeHostFolder,
             EventType::PastedText => ProtobufEventType::PastedText,
+            EventType::ConfigWasWrittenToDisk => ProtobufEventType::ConfigWasWrittenToDisk,
         })
     }
 }
@@ -1460,7 +1514,9 @@ fn serialize_mode_update_event_with_non_default_values() {
                 silver: PaletteColor::EightBit(2),
                 pink: PaletteColor::EightBit(2),
                 brown: PaletteColor::Rgb((222, 221, 220)),
-            },
+            }
+            .into(),
+            // TODO: replace default
             rounded_corners: true,
             hide_session_name: false,
         },
@@ -1515,6 +1571,8 @@ fn serialize_tab_update_event_with_non_default_values() {
             viewport_columns: 10,
             display_area_rows: 10,
             display_area_columns: 10,
+            selectable_tiled_panes_count: 10,
+            selectable_floating_panes_count: 10,
         },
         TabInfo {
             position: 1,
@@ -1531,6 +1589,8 @@ fn serialize_tab_update_event_with_non_default_values() {
             viewport_columns: 10,
             display_area_rows: 10,
             display_area_columns: 10,
+            selectable_tiled_panes_count: 10,
+            selectable_floating_panes_count: 10,
         },
         TabInfo::default(),
     ]);
@@ -1802,6 +1862,8 @@ fn serialize_session_update_event_with_non_default_values() {
             viewport_columns: 10,
             display_area_rows: 10,
             display_area_columns: 10,
+            selectable_tiled_panes_count: 10,
+            selectable_floating_panes_count: 10,
         },
         TabInfo {
             position: 1,
@@ -1818,6 +1880,8 @@ fn serialize_session_update_event_with_non_default_values() {
             viewport_columns: 10,
             display_area_rows: 10,
             display_area_columns: 10,
+            selectable_tiled_panes_count: 10,
+            selectable_floating_panes_count: 10,
         },
         TabInfo::default(),
     ];
@@ -1883,6 +1947,9 @@ fn serialize_session_update_event_with_non_default_values() {
             configuration: plugin_configuration,
         },
     );
+    let mut tab_history = BTreeMap::new();
+    tab_history.insert(1, vec![1, 2, 3]);
+    tab_history.insert(2, vec![1, 2, 3]);
     let session_info_1 = SessionInfo {
         name: "session 1".to_owned(),
         tabs: tab_infos,
@@ -1895,6 +1962,7 @@ fn serialize_session_update_event_with_non_default_values() {
             LayoutInfo::File("layout3".to_owned()),
         ],
         plugins,
+        tab_history,
     };
     let session_info_2 = SessionInfo {
         name: "session 2".to_owned(),
@@ -1910,6 +1978,7 @@ fn serialize_session_update_event_with_non_default_values() {
             LayoutInfo::File("layout3".to_owned()),
         ],
         plugins: Default::default(),
+        tab_history: Default::default(),
     };
     let session_infos = vec![session_info_1, session_info_2];
     let resurrectable_sessions = vec![];

@@ -318,6 +318,16 @@ pub struct SessionManifest {
     pub available_layouts: ::prost::alloc::vec::Vec<LayoutInfo>,
     #[prost(message, repeated, tag = "7")]
     pub plugins: ::prost::alloc::vec::Vec<PluginInfo>,
+    #[prost(message, repeated, tag = "8")]
+    pub tab_history: ::prost::alloc::vec::Vec<ClientTabHistory>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClientTabHistory {
+    #[prost(uint32, tag = "1")]
+    pub client_id: u32,
+    #[prost(uint32, repeated, tag = "2")]
+    pub tab_history: ::prost::alloc::vec::Vec<u32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -424,6 +434,10 @@ pub struct TabInfo {
     pub display_area_rows: u32,
     #[prost(uint32, tag = "14")]
     pub display_area_columns: u32,
+    #[prost(uint32, tag = "15")]
+    pub selectable_tiled_panes_count: u32,
+    #[prost(uint32, tag = "16")]
+    pub selectable_floating_panes_count: u32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -509,6 +523,7 @@ pub enum EventType {
     HostFolderChanged = 27,
     FailedToChangeHostFolder = 28,
     PastedText = 29,
+    ConfigWasWrittenToDisk = 30,
 }
 impl EventType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -547,6 +562,7 @@ impl EventType {
             EventType::HostFolderChanged => "HostFolderChanged",
             EventType::FailedToChangeHostFolder => "FailedToChangeHostFolder",
             EventType::PastedText => "PastedText",
+            EventType::ConfigWasWrittenToDisk => "ConfigWasWrittenToDisk",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -582,6 +598,7 @@ impl EventType {
             "HostFolderChanged" => Some(Self::HostFolderChanged),
             "FailedToChangeHostFolder" => Some(Self::FailedToChangeHostFolder),
             "PastedText" => Some(Self::PastedText),
+            "ConfigWasWrittenToDisk" => Some(Self::ConfigWasWrittenToDisk),
             _ => None,
         }
     }
@@ -651,6 +668,7 @@ pub enum MouseEventName {
     MouseRightClick = 3,
     MouseHold = 4,
     MouseRelease = 5,
+    MouseHover = 6,
 }
 impl MouseEventName {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -665,6 +683,7 @@ impl MouseEventName {
             MouseEventName::MouseRightClick => "MouseRightClick",
             MouseEventName::MouseHold => "MouseHold",
             MouseEventName::MouseRelease => "MouseRelease",
+            MouseEventName::MouseHover => "MouseHover",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -676,6 +695,7 @@ impl MouseEventName {
             "MouseRightClick" => Some(Self::MouseRightClick),
             "MouseHold" => Some(Self::MouseHold),
             "MouseRelease" => Some(Self::MouseRelease),
+            "MouseHover" => Some(Self::MouseHover),
             _ => None,
         }
     }

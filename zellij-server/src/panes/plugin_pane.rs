@@ -25,9 +25,10 @@ use zellij_utils::pane_size::{Offset, SizeInPixels};
 use zellij_utils::position::Position;
 use zellij_utils::{
     channels::SenderWithContext,
-    data::{Event, InputMode, Mouse, Palette, PaletteColor, Style},
+    data::{Event, InputMode, Mouse, Palette, PaletteColor, Style, Styling},
     errors::prelude::*,
     input::layout::Run,
+    input::mouse::{MouseEvent, MouseEventType},
     pane_size::PaneGeom,
     shared::make_terminal_title,
     vte,
@@ -411,13 +412,7 @@ impl Pane for PluginPane {
                 self.pane_name.clone()
             };
 
-            let mut frame_geom = self.current_geom();
-            if !frame_params.should_draw_pane_frames {
-                // in this case the width of the frame needs not include the pane corners
-                frame_geom
-                    .cols
-                    .set_inner(frame_geom.cols.as_usize().saturating_sub(1));
-            }
+            let frame_geom = self.current_geom();
             let is_pinned = frame_geom.is_pinned;
             let mut frame = PaneFrame::new(
                 frame_geom.into(),
@@ -612,6 +607,10 @@ impl Pane for PluginPane {
         self.resize_grids();
     }
 
+    fn get_content_offset(&self) -> Offset {
+        self.content_offset
+    }
+
     fn store_pane_name(&mut self) {
         if self.pane_name != self.prev_pane_name {
             self.prev_pane_name = self.pane_name.clone()
@@ -645,7 +644,7 @@ impl Pane for PluginPane {
             .unwrap();
     }
     fn add_red_pane_frame_color_override(&mut self, error_text: Option<String>) {
-        self.pane_frame_color_override = Some((self.style.colors.red, error_text));
+        self.pane_frame_color_override = Some((self.style.colors.exit_code_error.base, error_text));
     }
     fn clear_pane_frame_color_override(&mut self) {
         self.pane_frame_color_override = None;
@@ -703,7 +702,7 @@ impl Pane for PluginPane {
         self.pane_name = String::from_utf8_lossy(&buf).to_string();
         self.set_should_render(true);
     }
-    fn update_theme(&mut self, theme: Palette) {
+    fn update_theme(&mut self, theme: Styling) {
         self.style.colors = theme.clone();
         for grid in self.grids.values_mut() {
             grid.update_theme(theme.clone());
@@ -744,8 +743,43 @@ impl Pane for PluginPane {
         }
         false
     }
+    fn intercept_mouse_event_on_frame(&mut self, event: &MouseEvent, client_id: ClientId) -> bool {
+        if self.position_is_on_frame(&event.position) {
+            let relative_position = self.relative_position(&event.position);
+            if let MouseEventType::Press = event.event_type {
+                if let Some(client_frame) = self.frame.get_mut(&client_id) {
+                    if client_frame.clicked_on_pinned(relative_position) {
+                        self.toggle_pinned();
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
     fn reset_logical_position(&mut self) {
         self.geom.logical_position = None;
+    }
+    fn mouse_event(&self, event: &MouseEvent, client_id: ClientId) -> Option<String> {
+        match event.event_type {
+            MouseEventType::Motion
+                if !event.left
+                    && !event.right
+                    && !event.middle
+                    && !event.wheel_up
+                    && !event.wheel_down =>
+            {
+                let _ = self
+                    .send_plugin_instructions
+                    .send(PluginInstruction::Update(vec![(
+                        Some(self.pid),
+                        Some(client_id),
+                        Event::Mouse(Mouse::Hover(event.position.line(), event.position.column())),
+                    )]));
+            },
+            _ => {},
+        }
+        None
     }
 }
 
@@ -768,10 +802,10 @@ impl PluginPane {
         }
     }
     fn display_request_permission_message(&self, plugin_permission: &PluginPermission) -> String {
-        let bold_white = style!(self.style.colors.white).bold();
-        let cyan = style!(self.style.colors.cyan).bold();
-        let orange = style!(self.style.colors.orange).bold();
-        let green = style!(self.style.colors.green).bold();
+        let bold_white = style!(self.style.colors.text_unselected.base).bold();
+        let cyan = style!(self.style.colors.text_unselected.emphasis_1).bold();
+        let orange = style!(self.style.colors.text_unselected.emphasis_0).bold();
+        let green = style!(self.style.colors.text_unselected.emphasis_2).bold();
 
         let mut messages = String::new();
         let permissions: BTreeSet<PermissionType> =

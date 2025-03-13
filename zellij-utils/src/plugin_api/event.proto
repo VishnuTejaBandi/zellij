@@ -53,6 +53,7 @@ enum EventType {
     HostFolderChanged = 27;
     FailedToChangeHostFolder = 28;
     PastedText = 29;
+    ConfigWasWrittenToDisk = 30;
 }
 
 message EventNameList {
@@ -233,6 +234,7 @@ enum MouseEventName {
     MouseRightClick = 3;
     MouseHold = 4;
     MouseRelease = 5;
+    MouseHover = 6;
 }
 
 message TabUpdatePayload {
@@ -256,6 +258,12 @@ message SessionManifest {
   bool is_current_session = 5;
   repeated LayoutInfo available_layouts = 6;
   repeated PluginInfo plugins = 7;
+  repeated ClientTabHistory tab_history = 8;
+}
+
+message ClientTabHistory {
+  uint32 client_id = 1;
+  repeated uint32 tab_history = 2;
 }
 
 message PluginInfo {
@@ -314,6 +322,8 @@ message TabInfo {
     uint32 viewport_columns = 12;
     uint32 display_area_rows = 13;
     uint32 display_area_columns = 14;
+    uint32 selectable_tiled_panes_count = 15;
+    uint32 selectable_floating_panes_count = 16;
 }
 
 message ModeUpdatePayload {
